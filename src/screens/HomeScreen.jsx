@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  SafeAreaView, ScrollView, StatusBar, Dimensions,
+  SafeAreaView, ScrollView, StatusBar, Dimensions, Modal,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, SIZES, RADIUS } from '../utils/theme';
@@ -18,6 +18,7 @@ export default function HomeScreen({ navigation }) {
   const [claimedRewards, setClaimedRewards] = useState([]);
   const [dailyPlayed, setDailyPlayed]       = useState(false);
   const [countdown, setCountdown]           = useState('');
+  const [showCountdownModal, setShowCountdownModal] = useState(false);
   const timerRef = useRef(null);
 
   function getTimeUntilMidnight() {
@@ -172,7 +173,10 @@ export default function HomeScreen({ navigation }) {
         {/* Daily Challenge Button */}
         <TouchableOpacity
           style={[styles.dailyBtn, dailyPlayed && styles.dailyBtnDone]}
-          onPress={() => !dailyPlayed && navigation.navigate('Quiz', { subjectKey: 'mixed', daily: true })}
+          onPress={() => dailyPlayed
+            ? setShowCountdownModal(true)
+            : navigation.navigate('Quiz', { subjectKey: 'mixed', daily: true })
+          }
           activeOpacity={dailyPlayed ? 1 : 0.88}
         >
           <Text style={styles.dailyEmoji}>{dailyPlayed ? '✅' : '🎯'}</Text>
@@ -203,6 +207,24 @@ export default function HomeScreen({ navigation }) {
           </View>
         </View>
       </ScrollView>
+
+      {/* Daily Challenge countdown modal */}
+      <Modal visible={showCountdownModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalEmoji}>⏰</Text>
+            <Text style={styles.modalTitle}>Already Completed!</Text>
+            <Text style={styles.modalSub}>You've done today's challenge.{'\n'}Next challenge starts in:</Text>
+            <View style={styles.countdownBox}>
+              <Text style={styles.modalCountdown}>{countdown}</Text>
+            </View>
+            <Text style={styles.modalHint}>Come back tomorrow for a new challenge! 🎯</Text>
+            <TouchableOpacity style={styles.modalBtn} onPress={() => setShowCountdownModal(false)}>
+              <Text style={styles.modalBtnText}>OK, Got it!</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -306,6 +328,35 @@ const styles = StyleSheet.create({
   dailySub:       { fontSize: SIZES.xs, color: COLORS.textMuted, marginTop: 2 },
   dailyCountdown: { fontSize: SIZES.lg, fontWeight: '900', color: COLORS.primary, letterSpacing: 2, marginTop: 2 },
   arrow:          { fontSize: SIZES.xl, color: COLORS.primary, fontWeight: '700' },
+
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  modalCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 28, padding: 28,
+    alignItems: 'center', width: '82%', gap: 10,
+  },
+  modalEmoji:    { fontSize: 52 },
+  modalTitle:    { fontSize: SIZES.xl, fontWeight: '900', color: COLORS.primary },
+  modalSub:      { fontSize: SIZES.sm, color: COLORS.textMuted, textAlign: 'center', lineHeight: 22 },
+  countdownBox: {
+    backgroundColor: COLORS.primaryLight,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: 24, paddingVertical: 12,
+    borderWidth: 2, borderColor: COLORS.primary,
+  },
+  modalCountdown: {
+    fontSize: 38, fontWeight: '900',
+    color: COLORS.primary, letterSpacing: 3,
+  },
+  modalHint:  { fontSize: SIZES.xs, color: COLORS.textMuted, textAlign: 'center' },
+  modalBtn: {
+    backgroundColor: COLORS.primary, borderRadius: RADIUS.lg,
+    paddingHorizontal: 32, paddingVertical: 12, marginTop: 4,
+  },
+  modalBtnText: { color: COLORS.white, fontSize: SIZES.base, fontWeight: '800' },
 
   howTo: {
     backgroundColor: COLORS.primaryLight, marginHorizontal: 16,
