@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  SafeAreaView, StatusBar, Animated, Dimensions, Modal,
+  SafeAreaView, StatusBar, Animated, Dimensions,
 } from 'react-native';
 import { COLORS, SIZES, RADIUS, SUBJECTS } from '../utils/theme';
 import { getRandomQuestions, questions } from '../data/questions';
 import { Storage } from '../utils/storage';
 import { SoundManager } from '../utils/sounds';
-import { useSubscription, FREE_DAILY_LIMIT } from '../context/SubscriptionContext';
 
 const { width } = Dimensions.get('window');
 const TOTAL_QUESTIONS = 10;
@@ -30,31 +29,23 @@ export default function QuizScreen({ route, navigation }) {
   const subject = SUBJECTS.find((s) => s.key === subjectKey) || SUBJECTS[0];
   const color   = isMixed ? COLORS.primary : subject.color;
 
-  const { isPremium } = useSubscription();
-
   const [quizQuestions, setQuizQuestions] = useState([]);
-  const [current, setCurrent]     = useState(0);
-  const [selected, setSelected]   = useState(null);
-  const [score, setScore]         = useState(0);
-  const [timeLeft, setTimeLeft]   = useState(QUESTION_TIME);
-  const [answered, setAnswered]   = useState(false);
-  const [correctCount, setCorrectCount] = useState(0);
-  const [showPaywall, setShowPaywall]   = useState(false);
-  const [dailyUsed, setDailyUsed]       = useState(0);
+  const [current, setCurrent]   = useState(0);
+  const [selected, setSelected] = useState(null);
+  const [score, setScore]       = useState(0);
+  const [timeLeft, setTimeLeft] = useState(QUESTION_TIME);
+  const [answered, setAnswered] = useState(false);
 
   const progressAnim = useRef(new Animated.Value(1)).current;
   const fadeAnim     = useRef(new Animated.Value(1)).current;
   const shakeAnim    = useRef(new Animated.Value(0)).current;
   const timerRef     = useRef(null);
 
-  // Load questions + sounds on mount
   useEffect(() => {
     const qs = isMixed ? getMixedQuestions() : getRandomQuestions(subjectKey, TOTAL_QUESTIONS);
     setQuizQuestions(qs);
 
     const setup = async () => {
-      const used = await Storage.getDailyQuestionsAnswered();
-      setDailyUsed(used);
       await SoundManager.init();
       await SoundManager.play('start');
       await SoundManager.startBackground();
@@ -99,22 +90,15 @@ export default function QuizScreen({ route, navigation }) {
     setTimeout(() => goNext(), 1500);
   };
 
-  const handleSelect = async (option) => {
+  const handleSelect = (option) => {
     if (answered) return;
     clearInterval(timerRef.current);
     setAnswered(true);
     setSelected(option);
 
-    const q = quizQuestions[current];
-    const isCorrect = option === q.answer;
-
-    // Track daily usage for free tier
-    const newDailyUsed = await Storage.incrementDailyQuestionsAnswered();
-    setDailyUsed(newDailyUsed);
-
+    const isCorrect = option === quizQuestions[current].answer;
     if (isCorrect) {
       setScore((s) => s + 1);
-      setCorrectCount((c) => c + 1);
       SoundManager.play('correct');
     } else {
       SoundManager.play('wrong');
@@ -126,12 +110,7 @@ export default function QuizScreen({ route, navigation }) {
       ]).start();
     }
 
-    // Check free daily limit before advancing
-    if (!isPremium && newDailyUsed >= FREE_DAILY_LIMIT) {
-      setTimeout(() => setShowPaywall(true), 1200);
-    } else {
-      setTimeout(() => goNext(), 1200);
-    }
+    setTimeout(() => goNext(), 1200);
   };
 
   const goNext = () => {
@@ -149,7 +128,6 @@ export default function QuizScreen({ route, navigation }) {
           stars,
           subjectKey: isMixed ? 'mixed' : subjectKey,
           color,
-          isPremium,
         });
       } else {
         setCurrent((c) => c + 1);
@@ -191,7 +169,6 @@ export default function QuizScreen({ route, navigation }) {
     <SafeAreaView style={[styles.safe, { backgroundColor: color }]}>
       <StatusBar barStyle="light-content" backgroundColor={color} />
 
-      {/* Top bar */}
       <View style={styles.topBar}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Text style={styles.backText}>✕</Text>
@@ -204,7 +181,6 @@ export default function QuizScreen({ route, navigation }) {
         </View>
       </View>
 
-      {/* Progress */}
       <View style={styles.progressWrap}>
         <View style={styles.progressTrack}>
           <Animated.View
@@ -221,10 +197,8 @@ export default function QuizScreen({ route, navigation }) {
       </View>
       <Text style={styles.questionCount}>{current + 1} / {TOTAL_QUESTIONS}</Text>
 
-      {/* Question Card */}
       <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ translateX: shakeAnim }] }]}>
         <Text style={styles.questionText}>{q.q}</Text>
-
         <View style={styles.optionsWrap}>
           {q.options.map((option, idx) => (
             <TouchableOpacity
@@ -244,73 +218,29 @@ export default function QuizScreen({ route, navigation }) {
           ))}
         </View>
       </Animated.View>
-
-      {/* Daily limit paywall */}
-      <Modal visible={showPaywall} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalEmoji}>👑</Text>
-            <Text style={styles.modalTitle}>Daily Limit Reached!</Text>
-            <Text style={styles.modalSub}>
-              You've used all {FREE_DAILY_LIMIT} free questions for today.{'\n'}
-              Upgrade to Premium for unlimited access!
-            </Text>
-            <View style={styles.scorePreview}>
-              <Text style={styles.scorePreviewText}>Current score: {score} ⭐</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.buyBtn}
-              onPress={() => { setShowPaywall(false); navigation.navigate('Home'); }}
-            >
-              <Text style={styles.buyBtnText}>Go Premium — $2.99/month</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.endBtn}
-              onPress={() => {
-                setShowPaywall(false);
-                navigation.replace('Result', {
-                  score,
-                  total: current + 1,
-                  stars: score * 10,
-                  subjectKey: isMixed ? 'mixed' : subjectKey,
-                  color,
-                  isPremium: false,
-                });
-              }}
-            >
-              <Text style={styles.endBtnText}>See My Results</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  safe:        { flex: 1 },
+  loading:     { flex: 1, alignItems: 'center', justifyContent: 'center' },
   loadingText: { color: COLORS.white, fontSize: SIZES.lg },
 
   topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8,
   },
   backBtn: {
     width: 36, height: 36, borderRadius: 18,
     backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center', justifyContent: 'center',
   },
-  backText: { color: COLORS.white, fontSize: SIZES.base, fontWeight: '700' },
-  topLabel: { color: COLORS.white, fontSize: SIZES.base, fontWeight: '700' },
+  backText:  { color: COLORS.white, fontSize: SIZES.base, fontWeight: '700' },
+  topLabel:  { color: COLORS.white, fontSize: SIZES.base, fontWeight: '700' },
   scoreChip: {
     backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 12, paddingVertical: 6,
-    borderRadius: RADIUS.full,
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: RADIUS.full,
   },
   scoreChipText: { color: COLORS.white, fontSize: SIZES.sm, fontWeight: '700' },
 
@@ -319,27 +249,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, gap: 10, marginBottom: 4,
   },
   progressTrack: {
-    flex: 1, height: 6,
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    flex: 1, height: 6, backgroundColor: 'rgba(255,255,255,0.25)',
     borderRadius: RADIUS.full, overflow: 'hidden',
   },
-  progressFill: { height: '100%', borderRadius: RADIUS.full },
-  timerText: { fontSize: SIZES.sm, fontWeight: '800', minWidth: 28 },
+  progressFill:  { height: '100%', borderRadius: RADIUS.full },
+  timerText:     { fontSize: SIZES.sm, fontWeight: '800', minWidth: 28 },
   questionCount: {
     color: 'rgba(255,255,255,0.7)', fontSize: SIZES.xs,
     fontWeight: '600', paddingHorizontal: 16, marginBottom: 16,
   },
 
   card: {
-    flex: 1,
-    backgroundColor: COLORS.white,
-    marginHorizontal: 12,
-    borderRadius: 28,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 8,
+    flex: 1, backgroundColor: COLORS.white, marginHorizontal: 12,
+    borderRadius: 28, padding: 24,
+    shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 16, elevation: 8,
   },
   questionText: {
     fontSize: SIZES.xl, fontWeight: '800', color: COLORS.text,
@@ -348,9 +271,8 @@ const styles = StyleSheet.create({
   optionsWrap: { gap: 12 },
   option: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: COLORS.lightGray,
-    borderRadius: RADIUS.md, padding: 14, gap: 12,
-    borderWidth: 2, borderColor: 'transparent',
+    backgroundColor: COLORS.lightGray, borderRadius: RADIUS.md,
+    padding: 14, gap: 12, borderWidth: 2, borderColor: 'transparent',
   },
   optionCorrect: { backgroundColor: COLORS.greenLight, borderColor: COLORS.success },
   optionWrong:   { backgroundColor: '#FCEBEB', borderColor: COLORS.danger },
@@ -360,41 +282,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.08)',
     alignItems: 'center', justifyContent: 'center',
   },
-  optionLetterText: { fontSize: SIZES.sm, fontWeight: '800', color: COLORS.text },
+  optionLetterText:  { fontSize: SIZES.sm, fontWeight: '800', color: COLORS.text },
   optionText:        { flex: 1, fontSize: SIZES.base, fontWeight: '600', color: COLORS.text },
   optionTextCorrect: { color: COLORS.green },
   optionTextWrong:   { color: COLORS.danger },
   optionTextDimmed:  { color: COLORS.midGray },
   checkmark: { fontSize: SIZES.lg, color: COLORS.success, fontWeight: '800' },
   crossmark:  { fontSize: SIZES.lg, color: COLORS.danger,  fontWeight: '800' },
-
-  // Paywall modal
-  modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end',
-  },
-  modalCard: {
-    backgroundColor: COLORS.white,
-    borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    padding: 28, alignItems: 'center', gap: 12,
-  },
-  modalEmoji: { fontSize: 48 },
-  modalTitle: { fontSize: SIZES.xxl, fontWeight: '900', color: COLORS.primary },
-  modalSub: { fontSize: SIZES.sm, color: COLORS.textMuted, textAlign: 'center', lineHeight: 22 },
-  scorePreview: {
-    backgroundColor: COLORS.primaryLight,
-    borderRadius: RADIUS.md,
-    paddingHorizontal: 20, paddingVertical: 10, width: '100%', alignItems: 'center',
-  },
-  scorePreviewText: { fontSize: SIZES.base, fontWeight: '700', color: COLORS.primary },
-  buyBtn: {
-    width: '100%', backgroundColor: COLORS.primary,
-    borderRadius: RADIUS.lg, paddingVertical: 16, alignItems: 'center',
-  },
-  buyBtnText: { color: COLORS.white, fontSize: SIZES.base, fontWeight: '800' },
-  endBtn: {
-    width: '100%', backgroundColor: COLORS.offWhite,
-    borderRadius: RADIUS.lg, paddingVertical: 14, alignItems: 'center',
-    borderWidth: 2, borderColor: COLORS.primaryLight,
-  },
-  endBtnText: { color: COLORS.primary, fontSize: SIZES.base, fontWeight: '700' },
 });

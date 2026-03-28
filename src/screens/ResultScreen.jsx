@@ -1,22 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  SafeAreaView, StatusBar, Animated, Dimensions,
+  SafeAreaView, StatusBar, Animated,
 } from 'react-native';
-let InterstitialAd = null, AdEventType = null, TestIds = null;
-try {
-  const admob = require('react-native-google-mobile-ads');
-  InterstitialAd = admob.InterstitialAd;
-  AdEventType    = admob.AdEventType;
-  TestIds        = admob.TestIds;
-} catch {}
 import { COLORS, SIZES, RADIUS, SUBJECTS } from '../utils/theme';
-
-const { width } = Dimensions.get('window');
-
-const INTERSTITIAL_AD_UNIT_ID = TestIds
-  ? (__DEV__ ? TestIds.INTERSTITIAL : 'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX')
-  : null;
 
 function getMessage(score, total) {
   const pct = score / total;
@@ -28,32 +15,13 @@ function getMessage(score, total) {
 }
 
 export default function ResultScreen({ route, navigation }) {
-  const { score, total, stars, subjectKey, color, isPremium } = route.params || {};
+  const { score, total, stars, subjectKey, color } = route.params || {};
   const subject = SUBJECTS.find((s) => s.key === subjectKey);
   const { title, sub } = getMessage(score, total);
 
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const starsAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim  = useRef(new Animated.Value(0)).current;
-
-  const [adLoaded, setAdLoaded] = useState(false);
-  const interstitialRef = useRef(null);
-
-  useEffect(() => {
-    // Load interstitial for free users — requires EAS build
-    if (!isPremium && InterstitialAd && AdEventType) {
-      const ad = InterstitialAd.createForAdRequest(INTERSTITIAL_AD_UNIT_ID, {
-        requestNonPersonalizedAdsOnly: true,
-      });
-      interstitialRef.current = ad;
-
-      const unsubLoaded = ad.addAdEventListener(AdEventType.LOADED, () => setAdLoaded(true));
-      const unsubClosed = ad.addAdEventListener(AdEventType.CLOSED, () => setAdLoaded(false));
-
-      ad.load();
-      return () => { unsubLoaded(); unsubClosed(); };
-    }
-  }, []);
 
   useEffect(() => {
     Animated.sequence([
@@ -63,18 +31,6 @@ export default function ResultScreen({ route, navigation }) {
     ]).start();
   }, []);
 
-  const showAdThen = (action) => {
-    if (!isPremium && adLoaded && interstitialRef.current) {
-      const unsub = interstitialRef.current.addAdEventListener(AdEventType.CLOSED, () => {
-        unsub();
-        action();
-      });
-      interstitialRef.current.show();
-    } else {
-      action();
-    }
-  };
-
   const pct = score / total;
 
   return (
@@ -82,12 +38,10 @@ export default function ResultScreen({ route, navigation }) {
       <StatusBar barStyle="light-content" backgroundColor={color || COLORS.primary} />
 
       <View style={styles.container}>
-        {/* Top label */}
         <Text style={styles.topLabel}>
           {subject ? `${subject.emoji} ${subject.label}` : '🎯 Daily Challenge'}
         </Text>
 
-        {/* Score circle */}
         <Animated.View style={[styles.circleWrap, { transform: [{ scale: scaleAnim }] }]}>
           <View style={styles.circle}>
             <Text style={styles.scoreNum}>{score}</Text>
@@ -95,16 +49,13 @@ export default function ResultScreen({ route, navigation }) {
           </View>
         </Animated.View>
 
-        {/* Message */}
         <Text style={styles.msgTitle}>{title}</Text>
         <Text style={styles.msgSub}>{sub}</Text>
 
-        {/* Stars earned */}
         <Animated.View style={[styles.starsBanner, { opacity: starsAnim }]}>
           <Text style={styles.starsText}>⭐ +{stars} stars earned!</Text>
         </Animated.View>
 
-        {/* Stats */}
         <Animated.View style={[styles.statsRow, { opacity: fadeAnim }]}>
           <View style={styles.statBox}>
             <Text style={styles.statNum}>{score}</Text>
@@ -120,17 +71,16 @@ export default function ResultScreen({ route, navigation }) {
           </View>
         </Animated.View>
 
-        {/* Buttons */}
         <Animated.View style={[styles.buttons, { opacity: fadeAnim }]}>
           <TouchableOpacity
             style={styles.playAgainBtn}
-            onPress={() => showAdThen(() => navigation.replace('Quiz', { subjectKey }))}
+            onPress={() => navigation.replace('Quiz', { subjectKey })}
           >
             <Text style={styles.playAgainText}>Play Again</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.homeBtn}
-            onPress={() => showAdThen(() => navigation.navigate('Home'))}
+            onPress={() => navigation.navigate('Home')}
           >
             <Text style={styles.homeBtnText}>Home</Text>
           </TouchableOpacity>
@@ -141,7 +91,7 @@ export default function ResultScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
+  safe:      { flex: 1 },
   container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
 
   topLabel: {
@@ -176,7 +126,7 @@ const styles = StyleSheet.create({
   statNum:   { fontSize: SIZES.xl,  fontWeight: '800', color: COLORS.white },
   statLabel: { fontSize: SIZES.xs, color: 'rgba(255,255,255,0.75)', fontWeight: '600', marginTop: 2 },
 
-  buttons: { width: '100%', gap: 12 },
+  buttons:      { width: '100%', gap: 12 },
   playAgainBtn: {
     backgroundColor: COLORS.white,
     borderRadius: RADIUS.lg, paddingVertical: 16, alignItems: 'center',
