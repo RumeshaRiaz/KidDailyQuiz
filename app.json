@@ -31,8 +31,7 @@
         {
           "fonts": []
         }
-      ],
-      "./plugins/withAdMob"
+      ]
     ],
     "extra": {
       "eas": {
