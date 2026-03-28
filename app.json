@@ -32,12 +32,7 @@
           "fonts": []
         }
       ],
-      [
-        "react-native-google-mobile-ads",
-        {
-          "androidAppId": "ca-app-pub-7106819864536912~7463914470"
-        }
-      ]
+      "./plugins/withAdMob"
     ],
     "extra": {
       "eas": {
