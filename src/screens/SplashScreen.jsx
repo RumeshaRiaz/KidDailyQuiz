@@ -7,17 +7,17 @@ import { COLORS, SIZES } from '../utils/theme';
 const { width, height } = Dimensions.get('window');
 
 const STARS = ['⭐', '🌟', '✨', '💫', '⭐', '✨', '🌟', '💫', '⭐', '✨'];
+const STAR_X = STARS.map(() => Math.random() * width);
 
 export default function SplashScreen({ onFinish }) {
-  const logoScale   = useRef(new Animated.Value(0)).current;
-  const logoOpacity = useRef(new Animated.Value(0)).current;
-  const titleY      = useRef(new Animated.Value(30)).current;
-  const titleOpacity= useRef(new Animated.Value(0)).current;
-  const subOpacity  = useRef(new Animated.Value(0)).current;
-  const dotAnim     = useRef(new Animated.Value(0)).current;
+  const logoScale    = useRef(new Animated.Value(0)).current;
+  const logoOpacity  = useRef(new Animated.Value(0)).current;
+  const titleY       = useRef(new Animated.Value(30)).current;
+  const titleOpacity = useRef(new Animated.Value(0)).current;
+  const subOpacity   = useRef(new Animated.Value(0)).current;
+  const dotAnim      = useRef(new Animated.Value(0)).current;
 
   const starAnims = STARS.map(() => ({
-    x:       useRef(new Animated.Value(Math.random() * width)).current,
     y:       useRef(new Animated.Value(-20)).current,
     opacity: useRef(new Animated.Value(0)).current,
     scale:   useRef(new Animated.Value(0.5 + Math.random() * 0.8)).current,
@@ -78,7 +78,7 @@ export default function SplashScreen({ onFinish }) {
           style={[
             styles.fallingstar,
             {
-              left:    star.x,
+              left:    STAR_X[i],
               opacity: star.opacity,
               transform: [{ translateY: star.y }, { scale: star.scale }],
             },

@@ -8,7 +8,8 @@ const KEYS = {
   SCORES:          'scores',
   DAILY_Q_COUNT:   'dailyQCount',
   DAILY_Q_DATE:    'dailyQDate',
-  CLAIMED_REWARDS: 'claimedRewards',
+  CLAIMED_REWARDS:      'claimedRewards',
+  DAILY_CHALLENGE_DATE: 'dailyChallengeDate',
 };
 
 export const Storage = {
@@ -87,6 +88,15 @@ export const Storage = {
   async getClaimedRewards() {
     const val = await AsyncStorage.getItem(KEYS.CLAIMED_REWARDS);
     return val ? JSON.parse(val) : [];
+  },
+
+  async isDailyChallengePlayedToday() {
+    const date = await AsyncStorage.getItem(KEYS.DAILY_CHALLENGE_DATE);
+    return date === new Date().toDateString();
+  },
+
+  async markDailyChallengePlayedToday() {
+    await AsyncStorage.setItem(KEYS.DAILY_CHALLENGE_DATE, new Date().toDateString());
   },
 
   async claimReward(rewardId) {

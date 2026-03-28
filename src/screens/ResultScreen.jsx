@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   SafeAreaView, StatusBar, Animated,
@@ -14,14 +14,28 @@ function getMessage(score, total) {
   return           { title: "Don't Give Up! 🌈",        sub: 'Every expert was once a beginner!' };
 }
 
+function getTimeUntilMidnight() {
+  const now = new Date();
+  const midnight = new Date();
+  midnight.setHours(24, 0, 0, 0);
+  const diff = midnight - now;
+  const h = Math.floor(diff / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  const s = Math.floor((diff % 60000) / 1000);
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
 export default function ResultScreen({ route, navigation }) {
   const { score, total, stars, subjectKey, color } = route.params || {};
+  const isDaily = subjectKey === 'mixed';
   const subject = SUBJECTS.find((s) => s.key === subjectKey);
   const { title, sub } = getMessage(score, total);
 
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const starsAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim  = useRef(new Animated.Value(0)).current;
+
+  const [countdown, setCountdown] = useState(getTimeUntilMidnight());
 
   useEffect(() => {
     Animated.sequence([
@@ -30,6 +44,13 @@ export default function ResultScreen({ route, navigation }) {
       Animated.timing(fadeAnim,  { toValue: 1, duration: 400, useNativeDriver: true }),
     ]).start();
   }, []);
+
+  // Live countdown for daily challenge
+  useEffect(() => {
+    if (!isDaily) return;
+    const interval = setInterval(() => setCountdown(getTimeUntilMidnight()), 1000);
+    return () => clearInterval(interval);
+  }, [isDaily]);
 
   const pct = score / total;
 
@@ -55,6 +76,15 @@ export default function ResultScreen({ route, navigation }) {
         <Animated.View style={[styles.starsBanner, { opacity: starsAnim }]}>
           <Text style={styles.starsText}>⭐ +{stars} stars earned!</Text>
         </Animated.View>
+
+        {/* Next Daily Challenge countdown */}
+        {isDaily && (
+          <Animated.View style={[styles.nextChallengeBox, { opacity: starsAnim }]}>
+            <Text style={styles.nextChallengeLabel}>🎯 Next Daily Challenge in</Text>
+            <Text style={styles.countdownText}>{countdown}</Text>
+            <Text style={styles.nextChallengeHint}>Come back tomorrow for a new challenge!</Text>
+          </Animated.View>
+        )}
 
         <Animated.View style={[styles.statsRow, { opacity: fadeAnim }]}>
           <View style={styles.statBox}>
@@ -125,6 +155,27 @@ const styles = StyleSheet.create({
   },
   statNum:   { fontSize: SIZES.xl,  fontWeight: '800', color: COLORS.white },
   statLabel: { fontSize: SIZES.xs, color: 'rgba(255,255,255,0.75)', fontWeight: '600', marginTop: 2 },
+
+  nextChallengeBox: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 20,
+    padding: 18,
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 20,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.3)',
+    gap: 6,
+  },
+  nextChallengeLabel: { color: 'rgba(255,255,255,0.85)', fontSize: SIZES.sm, fontWeight: '700' },
+  countdownText: {
+    color: COLORS.white,
+    fontSize: 40,
+    fontWeight: '900',
+    letterSpacing: 3,
+    fontVariant: ['tabular-nums'],
+  },
+  nextChallengeHint: { color: 'rgba(255,255,255,0.65)', fontSize: SIZES.xs, fontWeight: '500', textAlign: 'center' },
 
   buttons:      { width: '100%', gap: 12 },
   playAgainBtn: {

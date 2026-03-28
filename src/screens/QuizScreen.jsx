@@ -121,6 +121,7 @@ export default function QuizScreen({ route, navigation }) {
         await Storage.addStars(stars);
         await Storage.updateStreak();
         await Storage.saveScore(isMixed ? 'mixed' : subjectKey, finalScore, TOTAL_QUESTIONS);
+        if (isMixed) await Storage.markDailyChallengePlayedToday();
 
         navigation.replace('Result', {
           score: finalScore,

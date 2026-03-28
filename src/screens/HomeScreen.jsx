@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   SafeAreaView, ScrollView, StatusBar, Dimensions,
@@ -12,26 +12,51 @@ import { REWARDS } from '../data/rewards';
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen({ navigation }) {
-  const [totalStars, setTotalStars]       = useState(0);
-  const [streak, setStreak]               = useState(0);
-  const [scores, setScores]               = useState({});
+  const [totalStars, setTotalStars]         = useState(0);
+  const [streak, setStreak]                 = useState(0);
+  const [scores, setScores]                 = useState({});
   const [claimedRewards, setClaimedRewards] = useState([]);
+  const [dailyPlayed, setDailyPlayed]       = useState(false);
+  const [countdown, setCountdown]           = useState('');
+  const timerRef = useRef(null);
+
+  function getTimeUntilMidnight() {
+    const now = new Date();
+    const midnight = new Date();
+    midnight.setHours(24, 0, 0, 0);
+    const diff = midnight - now;
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
 
   useFocusEffect(
-    useCallback(() => { loadStats(); }, [])
+    useCallback(() => {
+      loadStats();
+      return () => clearInterval(timerRef.current);
+    }, [])
   );
 
   const loadStats = async () => {
-    const [stars, str, sc, claimed] = await Promise.all([
+    const [stars, str, sc, claimed, played] = await Promise.all([
       Storage.getTotalStars(),
       Storage.getStreak(),
       Storage.getScores(),
       Storage.getClaimedRewards(),
+      Storage.isDailyChallengePlayedToday(),
     ]);
     setTotalStars(stars);
     setStreak(str);
     setScores(sc);
     setClaimedRewards(claimed);
+    setDailyPlayed(played);
+
+    if (played) {
+      setCountdown(getTimeUntilMidnight());
+      clearInterval(timerRef.current);
+      timerRef.current = setInterval(() => setCountdown(getTimeUntilMidnight()), 1000);
+    }
   };
 
   const getBestScore = (subjectKey) => {
@@ -146,16 +171,26 @@ export default function HomeScreen({ navigation }) {
 
         {/* Daily Challenge Button */}
         <TouchableOpacity
-          style={styles.dailyBtn}
-          onPress={() => navigation.navigate('Quiz', { subjectKey: 'mixed', daily: true })}
-          activeOpacity={0.88}
+          style={[styles.dailyBtn, dailyPlayed && styles.dailyBtnDone]}
+          onPress={() => !dailyPlayed && navigation.navigate('Quiz', { subjectKey: 'mixed', daily: true })}
+          activeOpacity={dailyPlayed ? 1 : 0.88}
         >
-          <Text style={styles.dailyEmoji}>🎯</Text>
+          <Text style={styles.dailyEmoji}>{dailyPlayed ? '✅' : '🎯'}</Text>
           <View style={styles.dailyText}>
-            <Text style={styles.dailyTitle}>Daily Challenge</Text>
-            <Text style={styles.dailySub}>Mix of all subjects • Earn bonus stars!</Text>
+            {dailyPlayed ? (
+              <>
+                <Text style={styles.dailyTitle}>Challenge Complete!</Text>
+                <Text style={styles.dailySub}>Next challenge in</Text>
+                <Text style={styles.dailyCountdown}>{countdown}</Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.dailyTitle}>Daily Challenge</Text>
+                <Text style={styles.dailySub}>Mix of all subjects • Earn bonus stars!</Text>
+              </>
+            )}
           </View>
-          <Text style={styles.arrow}>→</Text>
+          {!dailyPlayed && <Text style={styles.arrow}>→</Text>}
         </TouchableOpacity>
 
         {/* How to play */}
@@ -261,11 +296,16 @@ const styles = StyleSheet.create({
     marginBottom: 20, shadowColor: COLORS.primary, shadowOpacity: 0.08,
     shadowRadius: 12, elevation: 3, borderWidth: 2, borderColor: COLORS.primaryLight,
   },
-  dailyEmoji: { fontSize: 32 },
-  dailyText:  { flex: 1 },
-  dailyTitle: { fontSize: SIZES.base, fontWeight: '800', color: COLORS.primary },
-  dailySub:   { fontSize: SIZES.xs, color: COLORS.textMuted, marginTop: 2 },
-  arrow:      { fontSize: SIZES.xl, color: COLORS.primary, fontWeight: '700' },
+  dailyBtnDone: {
+    backgroundColor: '#F0FFF4',
+    borderColor: COLORS.success,
+  },
+  dailyEmoji:     { fontSize: 32 },
+  dailyText:      { flex: 1 },
+  dailyTitle:     { fontSize: SIZES.base, fontWeight: '800', color: COLORS.primary },
+  dailySub:       { fontSize: SIZES.xs, color: COLORS.textMuted, marginTop: 2 },
+  dailyCountdown: { fontSize: SIZES.lg, fontWeight: '900', color: COLORS.primary, letterSpacing: 2, marginTop: 2 },
+  arrow:          { fontSize: SIZES.xl, color: COLORS.primary, fontWeight: '700' },
 
   howTo: {
     backgroundColor: COLORS.primaryLight, marginHorizontal: 16,
